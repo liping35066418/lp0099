@@ -137,6 +137,8 @@ function PriceCanvas() {
     addModuleToCanvas,
     updateModulePosition,
     removeModuleFromCanvas,
+    getEffectivePrice,
+    getEffectiveDiscountValue,
   } = usePriceConfigStore();
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -309,7 +311,7 @@ function PriceCanvas() {
                       <div className="flex flex-wrap gap-1">
                         {service.addons.slice(0, 3).map((a) => (
                           <span key={a.id} className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded-full">
-                            {a.name} +¥{a.price}
+                            {a.name} +¥{getEffectivePrice(a.price)}
                           </span>
                         ))}
                         {service.addons.length > 3 && (
@@ -323,13 +325,13 @@ function PriceCanvas() {
 
                   <div className="mt-auto flex items-end justify-between pt-2 border-t border-gray-100">
                     <div className={`text-2xl font-black ${templateStyle.priceColor}`}>
-                      ¥{service.basePrice}
+                      ¥{getEffectivePrice(service.basePrice)}
                       <span className="text-xs font-normal text-gray-400 ml-0.5">起</span>
                     </div>
                     {service.discount.enabled && (
                       <div className="text-[11px] text-gray-500 text-right">
                         {service.discount.discountType === 'fixed' ? (
-                          <span className="text-red-500 font-semibold">立减¥{Math.min(service.discount.discountValue, service.basePrice)}</span>
+                          <span className="text-red-500 font-semibold">立减¥{getEffectiveDiscountValue(service)}</span>
                         ) : (
                           <span className="text-red-500 font-semibold">{Math.min(service.discount.discountValue, 100)}% OFF</span>
                         )}
@@ -357,6 +359,8 @@ function ConfigPanel() {
   const {
     template,
     setTemplate,
+    holidayMarkup,
+    setHolidayMarkup,
     serviceItems,
     selectedModuleId,
     canvasModules,
@@ -417,6 +421,41 @@ function ConfigPanel() {
             节假日
           </button>
         </div>
+
+        {template === 'holiday' && (
+          <div className="mt-4 p-3 bg-gradient-to-br from-red-50 to-orange-50 rounded-lg border border-red-100">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-red-500" />
+              <span className="text-xs font-bold text-red-700">节假日加价系数</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={holidayMarkup}
+                onChange={(e) => setHolidayMarkup(Number(e.target.value))}
+                className="flex-1 h-2 bg-red-200 rounded-lg appearance-none cursor-pointer accent-red-500"
+              />
+              <div className="relative w-20">
+                <input
+                  type="number"
+                  min={0}
+                  max={200}
+                  value={holidayMarkup}
+                  onChange={(e) => setHolidayMarkup(Number(e.target.value))}
+                  className="w-full pl-2 pr-6 py-1.5 bg-white border border-red-200 rounded text-sm font-bold text-red-600 focus:ring-2 focus:ring-red-400 focus:border-red-400 outline-none text-right"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-red-400 text-xs font-bold">
+                  %
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-red-600 mt-2">
+              所有服务价格将上浮 {holidayMarkup}%，画布和账单实时同步
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
@@ -660,6 +699,7 @@ function BillingPanel() {
     clearCart,
     calculateCartItemPrice,
     calculateCartTotal,
+    getEffectivePrice,
   } = usePriceConfigStore();
 
   const [expanded, setExpanded] = useState(true);
@@ -747,7 +787,7 @@ function BillingPanel() {
                         </div>
                         <div className="min-w-0">
                           <div className="font-semibold text-gray-800 text-sm truncate">{service.name}</div>
-                          <div className="text-xs text-gray-400">基础 ¥{service.basePrice}</div>
+                          <div className="text-xs text-gray-400">基础 ¥{getEffectivePrice(service.basePrice)}</div>
                         </div>
                       </div>
                       <button
@@ -775,7 +815,7 @@ function BillingPanel() {
                                 }`}
                               >
                                 {selected && '✓ '}
-                                {a.name} +¥{a.price}
+                                {a.name} +¥{getEffectivePrice(a.price)}
                               </button>
                             );
                           })}

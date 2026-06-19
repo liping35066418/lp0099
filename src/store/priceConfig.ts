@@ -199,12 +199,14 @@ const DEFAULT_CANVAS_MODULES: CanvasModule[] = [
 
 interface PriceConfigState {
   template: TemplateType;
+  holidayMarkup: number;
   serviceItems: ServiceItem[];
   canvasModules: CanvasModule[];
   selectedModuleId: string | null;
   cartItems: CartItem[];
   draggedServiceId: string | null;
   setTemplate: (template: TemplateType) => void;
+  setHolidayMarkup: (markup: number) => void;
   setSelectedModuleId: (id: string | null) => void;
   setDraggedServiceId: (id: string | null) => void;
   updateServiceItem: (id: string, updates: Partial<ServiceItem>) => void;
@@ -220,12 +222,15 @@ interface PriceConfigState {
   updateCartItemQuantity: (cartIndex: number, quantity: number) => void;
   removeCartItem: (cartIndex: number) => void;
   clearCart: () => void;
+  getEffectivePrice: (basePrice: number) => number;
+  getEffectiveDiscountValue: (service: ServiceItem) => number;
   calculateCartItemPrice: (cartItem: CartItem) => { original: number; discount: number; final: number };
   calculateCartTotal: () => { originalTotal: number; totalDiscount: number; finalTotal: number };
 }
 
 export const usePriceConfigStore = create<PriceConfigState>((set, get) => ({
   template: 'daily',
+  holidayMarkup: 20,
   serviceItems: DEFAULT_SERVICE_ITEMS,
   canvasModules: DEFAULT_CANVAS_MODULES,
   selectedModuleId: null,
@@ -236,8 +241,28 @@ export const usePriceConfigStore = create<PriceConfigState>((set, get) => ({
   draggedServiceId: null,
 
   setTemplate: (template) => set({ template }),
+  setHolidayMarkup: (markup) => set({ holidayMarkup: Math.max(0, Math.min(200, markup)) }),
   setSelectedModuleId: (id) => set({ selectedModuleId: id }),
   setDraggedServiceId: (id) => set({ draggedServiceId: id }),
+
+  getEffectivePrice: (basePrice) => {
+    const state = get();
+    if (state.template !== 'holiday' || state.holidayMarkup <= 0) {
+      return basePrice;
+    }
+    return Math.round(basePrice * (1 + state.holidayMarkup / 100));
+  },
+
+  getEffectiveDiscountValue: (service) => {
+    const state = get();
+    if (!service.discount.enabled) return 0;
+    const effectiveBasePrice = state.getEffectivePrice(service.basePrice);
+    if (service.discount.discountType === 'fixed') {
+      return Math.min(service.discount.discountValue, effectiveBasePrice);
+    } else {
+      return Math.round((effectiveBasePrice * Math.min(service.discount.discountValue, 100)) / 100);
+    }
+  },
 
   updateServiceItem: (id, updates) =>
     set((state) => ({
@@ -320,9 +345,22 @@ export const usePriceConfigStore = create<PriceConfigState>((set, get) => ({
     })),
 
   addCartItem: (serviceItemId) =>
-    set((state) => ({
-      cartItems: [...state.cartItems, { serviceItemId, selectedAddons: [], quantity: 1 }],
-    })),
+    set((state) => {
+      const existingIndex = state.cartItems.findIndex(
+        (item) => item.serviceItemId === serviceItemId
+      );
+      if (existingIndex >= 0) {
+        const newCartItems = [...state.cartItems];
+        newCartItems[existingIndex] = {
+          ...newCartItems[existingIndex],
+          quantity: newCartItems[existingIndex].quantity + 1,
+        };
+        return { cartItems: newCartItems };
+      }
+      return {
+        cartItems: [...state.cartItems, { serviceItemId, selectedAddons: [], quantity: 1 }],
+      };
+    }),
 
   updateCartItemAddons: (cartIndex, addonId, selected) =>
     set((state) => {
@@ -340,10 +378,15 @@ export const usePriceConfigStore = create<PriceConfigState>((set, get) => ({
 
   updateCartItemQuantity: (cartIndex, quantity) =>
     set((state) => {
+      if (quantity < 1) {
+        return {
+          cartItems: state.cartItems.filter((_, i) => i !== cartIndex),
+        };
+      }
       const newCartItems = [...state.cartItems];
       newCartItems[cartIndex] = {
         ...newCartItems[cartIndex],
-        quantity: Math.max(1, quantity),
+        quantity,
       };
       return { cartItems: newCartItems };
     }),
@@ -360,19 +403,20 @@ export const usePriceConfigStore = create<PriceConfigState>((set, get) => ({
     const service = state.serviceItems.find((s) => s.id === cartItem.serviceItemId);
     if (!service) return { original: 0, discount: 0, final: 0 };
 
+    const effectiveBasePrice = state.getEffectivePrice(service.basePrice);
     const addonsTotal = service.addons
       .filter((a) => cartItem.selectedAddons.includes(a.id))
-      .reduce((sum, a) => sum + a.price, 0);
+      .reduce((sum, a) => sum + state.getEffectivePrice(a.price), 0);
 
-    const original = (service.basePrice + addonsTotal) * cartItem.quantity;
+    const original = (effectiveBasePrice + addonsTotal) * cartItem.quantity;
 
     let discount = 0;
     if (service.discount.enabled) {
-      const baseOriginal = service.basePrice * cartItem.quantity;
+      const baseOriginal = effectiveBasePrice * cartItem.quantity;
       if (service.discount.discountType === 'fixed') {
         discount = Math.min(service.discount.discountValue * cartItem.quantity, baseOriginal);
       } else {
-        discount = Math.round((baseOriginal * service.discount.discountValue) / 100);
+        discount = Math.round((baseOriginal * Math.min(service.discount.discountValue, 100)) / 100);
       }
       discount = Math.min(discount, original);
     }
