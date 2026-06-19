@@ -187,12 +187,14 @@ const DEFAULT_SERVICE_ITEMS: ServiceItem[] = [
   },
 ];
 
+const CANVAS_HEADER_SAFE_Y = 120;
+
 const DEFAULT_CANVAS_MODULES: CanvasModule[] = [
-  { id: 'mod-1', serviceItemId: 'svc-1', x: 20, y: 20, width: 280, height: 200 },
-  { id: 'mod-2', serviceItemId: 'svc-2', x: 320, y: 20, width: 280, height: 200 },
-  { id: 'mod-3', serviceItemId: 'svc-3', x: 20, y: 240, width: 280, height: 200 },
-  { id: 'mod-4', serviceItemId: 'svc-5', x: 320, y: 240, width: 280, height: 200 },
-  { id: 'mod-5', serviceItemId: 'svc-7', x: 20, y: 460, width: 280, height: 200 },
+  { id: 'mod-1', serviceItemId: 'svc-1', x: 20, y: CANVAS_HEADER_SAFE_Y, width: 280, height: 200 },
+  { id: 'mod-2', serviceItemId: 'svc-2', x: 320, y: CANVAS_HEADER_SAFE_Y, width: 280, height: 200 },
+  { id: 'mod-3', serviceItemId: 'svc-3', x: 20, y: CANVAS_HEADER_SAFE_Y + 220, width: 280, height: 200 },
+  { id: 'mod-4', serviceItemId: 'svc-5', x: 320, y: CANVAS_HEADER_SAFE_Y + 220, width: 280, height: 200 },
+  { id: 'mod-5', serviceItemId: 'svc-7', x: 20, y: CANVAS_HEADER_SAFE_Y + 440, width: 280, height: 200 },
 ];
 
 interface PriceConfigState {
@@ -297,7 +299,7 @@ export const usePriceConfigStore = create<PriceConfigState>((set, get) => ({
           id: `mod-${Date.now()}`,
           serviceItemId,
           x: Math.max(0, x - 140),
-          y: Math.max(0, y - 100),
+          y: Math.max(CANVAS_HEADER_SAFE_Y, y - 100),
           width: 280,
           height: 200,
         },
@@ -307,7 +309,7 @@ export const usePriceConfigStore = create<PriceConfigState>((set, get) => ({
   updateModulePosition: (moduleId, x, y) =>
     set((state) => ({
       canvasModules: state.canvasModules.map((mod) =>
-        mod.id === moduleId ? { ...mod, x: Math.max(0, x), y: Math.max(0, y) } : mod
+        mod.id === moduleId ? { ...mod, x: Math.max(0, x), y: Math.max(CANVAS_HEADER_SAFE_Y, y) } : mod
       ),
     })),
 

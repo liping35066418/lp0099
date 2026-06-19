@@ -329,9 +329,9 @@ function PriceCanvas() {
                     {service.discount.enabled && (
                       <div className="text-[11px] text-gray-500 text-right">
                         {service.discount.discountType === 'fixed' ? (
-                          <span className="text-red-500 font-semibold">立减¥{service.discount.discountValue}</span>
+                          <span className="text-red-500 font-semibold">立减¥{Math.min(service.discount.discountValue, service.basePrice)}</span>
                         ) : (
-                          <span className="text-red-500 font-semibold">{service.discount.discountValue}% OFF</span>
+                          <span className="text-red-500 font-semibold">{Math.min(service.discount.discountValue, 100)}% OFF</span>
                         )}
                       </div>
                     )}
@@ -604,7 +604,7 @@ function ConfigPanel() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  {selectedService.discount.discountType === 'fixed' ? '减免金额 (元)' : '折扣比例 (%)'}
+                  {selectedService.discount.discountType === 'fixed' ? `减免金额 (元, 最高 ¥${selectedService.basePrice})` : '折扣比例 (%)'}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
@@ -613,9 +613,15 @@ function ConfigPanel() {
                   <input
                     type="number"
                     min={0}
-                    max={selectedService.discount.discountType === 'percent' ? 100 : undefined}
+                    max={selectedService.discount.discountType === 'fixed' ? selectedService.basePrice : 100}
                     value={selectedService.discount.discountValue}
-                    onChange={(e) => updateServiceDiscount(selectedService.id, { discountValue: Math.max(0, Number(e.target.value) || 0) })}
+                    onChange={(e) => {
+                      const raw = Number(e.target.value) || 0;
+                      const capped = selectedService.discount.discountType === 'fixed'
+                        ? Math.min(Math.max(0, raw), selectedService.basePrice)
+                        : Math.min(Math.max(0, raw), 100);
+                      updateServiceDiscount(selectedService.id, { discountValue: capped });
+                    }}
                     className={`w-full pl-8 pr-10 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-red-600 focus:ring-2 focus:ring-red-400 focus:border-red-400 outline-none`}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
